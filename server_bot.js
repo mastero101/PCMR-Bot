@@ -5,23 +5,46 @@ const token = '6779482679:AAHJwXiVpvz0fXCaf4LcwUKtx0p3GpZjVws';
 
 const bot = new TelegramBot(token, { polling: true });
 
-// Configura la conexión a la base de datos
-const dbConnection = mysql.createConnection({
-    host: 'localhost',
+let dbConnection;
+
+// Función para conectar a la base de datos
+function connectToDatabase(host) {
+  return mysql.createConnection({
+    host: host,
     user: 'mastero',
     password: 'alejandrof15',
     database: 'test',
     port: 3306,
     ssl: false
-});
+  });
+}
 
-dbConnection.connect((err) => {
-  if (err) {
-    console.error('Error al conectar a la base de datos:', err);
-  } else {
-    console.log('Conexión a la base de datos establecida.');
-  }
-});
+// Lista de hosts de base de datos
+const dbHosts = ['localhost', '20.172.167.237'];
+
+// Intenta la conexión a la base de datos
+function tryDatabaseConnection(hosts) {
+  const host = hosts.shift();
+
+  dbConnection = connectToDatabase(host);
+
+  dbConnection.connect((err) => {
+    if (err) {
+      console.error(`Error al conectar a la base de datos con el host ${host}:`, err);
+
+      if (hosts.length > 0) {
+        tryDatabaseConnection(hosts);
+      } else {
+        console.error('Error al conectar a todos los hosts.');
+      }
+    } else {
+      console.log(`Conexión a la base de datos establecida con el host ${host}.`);
+    }
+  });
+}
+
+tryDatabaseConnection([...dbHosts]); // Inicia el intento de conexión con la lista de hosts
+
 
 // Define una función para el comando /addpoints
 bot.on('message', (msg) => {
