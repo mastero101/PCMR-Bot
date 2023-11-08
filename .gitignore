@@ -1,0 +1,10 @@
+# Ignora la carpeta node_modules
+node_modules/
+
+# Archivos generados por npm
+package-lock.json
+npm-debug.log
+
+# Dependiendo de tu entorno, también puedes querer ignorar estos archivos:
+# yarn.lock (si usas Yarn)
+# pnpm-lock.yaml (si usas PNPM)
