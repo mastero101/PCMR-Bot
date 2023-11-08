@@ -7,7 +7,7 @@ const bot = new TelegramBot(token, { polling: true });
 
 // Configura la conexión a la base de datos
 const dbConnection = mysql.createConnection({
-    host: '20.172.167.237',
+    host: 'localhost',
     user: 'mastero',
     password: 'alejandrof15',
     database: 'test',
