@@ -45,57 +45,65 @@ function tryDatabaseConnection(hosts) {
 
 tryDatabaseConnection([...dbHosts]); // Inicia el intento de conexión con la lista de hosts
 
+// Define una función para el comando /addpoints y /lesspoints
+bot.onText(/\/add/, (msg) => {
+  handlePointsCommand(msg, 1);
+});
 
-// Define una función para el comando /addpoints
-bot.on('message', (msg) => {
+bot.onText(/\/less/, (msg) => {
+  handlePointsCommand(msg, -1);
+});
+
+// Función para manejar los comandos de puntos
+function handlePointsCommand(msg, pointsToAdd) {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
-  const text = msg.text;
 
-  // Verifica si el mensaje es "+1" o "-1"
-  if (text === '+1' || text === '-1') {
-    // Obtiene el ID del usuario al que se le responde
-    const repliedToUserId = msg.reply_to_message.from.id;
+  // Obtiene el ID del usuario al que se le responde
+  const repliedToUserId = msg.reply_to_message.from.id;
 
-    // Obtiene el nombre de usuario del usuario al que se le responde
-    const repliedToUsername = msg.reply_to_message.from.username;
+  // Obtiene el nombre de usuario del usuario al que se le responde
+  const repliedToUsername = msg.reply_to_message.from.username;
 
-    // Verifica si el usuario ya existe en la base de datos
-    const selectSql = 'SELECT * FROM ranking WHERE userId = ?';
-    dbConnection.query(selectSql, [repliedToUserId], (selectErr, selectResults) => {
-      if (selectErr) {
-        console.error('Error al consultar la base de datos:', selectErr);
-        bot.sendMessage(chatId, 'Ha ocurrido un error al verificar el usuario.');
+  // Verifica si el usuario tiene un nombre de usuario
+  const username = repliedToUsername || 'No_Username';
+
+  // Verifica si el usuario ya existe en la base de datos
+  const selectSql = 'SELECT * FROM ranking WHERE userId = ?';
+  dbConnection.query(selectSql, [repliedToUserId], (selectErr, selectResults) => {
+    if (selectErr) {
+      console.error('Error al consultar la base de datos:', selectErr);
+      bot.sendMessage(chatId, 'Ha ocurrido un error al verificar el usuario.');
+    } else {
+      if (selectResults.length === 0) {
+        // Si el usuario no existe, inserta un nuevo registro
+        const insertSql = 'INSERT INTO ranking (userId, username, points) VALUES (?, ?, ?)';
+        dbConnection.query(insertSql, [repliedToUserId, username, pointsToAdd], (insertErr) => {
+          if (insertErr) {
+            console.error('Error al agregar puntos a la base de datos:', insertErr);
+            bot.sendMessage(chatId, 'Ha ocurrido un error al agregar puntos.');
+          } else {
+            console.log(`Se ha sumado ${pointsToAdd} punto a @${username}.`);
+            bot.sendMessage(chatId, `Se ha sumado ${pointsToAdd} punto a @${username}.`);
+          }
+        });
       } else {
-        if (selectResults.length === 0) {
-          // Si el usuario no existe, inserta un nuevo registro
-          const insertSql = 'INSERT INTO ranking (userId, username, points) VALUES (?, ?, ?)';
-          dbConnection.query(insertSql, [repliedToUserId, repliedToUsername, (text === '+1' ? 1 : -1)], (insertErr) => {
-            if (insertErr) {
-              console.error('Error al agregar puntos a la base de datos:', insertErr);
-              bot.sendMessage(chatId, 'Ha ocurrido un error al agregar puntos.');
-            } else {
-              console.log(`Se ha ${text === '+1' ? 'sumado' : 'restado'} 1 punto a @${repliedToUsername}.`);
-              bot.sendMessage(chatId, `Se ha ${text === '+1' ? 'sumado' : 'restado'} 1 punto a @${repliedToUsername}.`);
-            }
-          });
-        } else {
-          // Si el usuario ya existe, actualiza sus puntos
-          const updateSql = 'UPDATE ranking SET points = points + ? WHERE userId = ?';
-          dbConnection.query(updateSql, [(text === '+1' ? 1 : -1), repliedToUserId], (updateErr) => {
-            if (updateErr) {
-              console.error('Error al actualizar puntos del usuario:', updateErr);
-              bot.sendMessage(chatId, 'Ha ocurrido un error al actualizar puntos.');
-            } else {
-              console.log(`Se ha ${text === '+1' ? 'sumado' : 'restado'} 1 punto a @${repliedToUsername}.`);
-              bot.sendMessage(chatId, `Se ha ${text === '+1' ? 'sumado' : 'restado'} 1 punto a @${repliedToUsername}.`);
-            }
-          });
-        }
+        // Si el usuario ya existe, actualiza sus puntos
+        const updateSql = 'UPDATE ranking SET points = points + ? WHERE userId = ?';
+        dbConnection.query(updateSql, [pointsToAdd, repliedToUserId], (updateErr) => {
+          if (updateErr) {
+            console.error('Error al actualizar puntos del usuario:', updateErr);
+            bot.sendMessage(chatId, 'Ha ocurrido un error al actualizar puntos.');
+          } else {
+            console.log(`Se ha sumado ${pointsToAdd} punto a @${username}.`);
+            bot.sendMessage(chatId, `Se ha sumado ${pointsToAdd} punto a @${username}.`);
+          }
+        });
       }
-    });
-  }
-});
+    }
+  });
+}
+
 
 // Define una función para el comando /rank
 bot.onText(/\/rank/, (msg) => {
