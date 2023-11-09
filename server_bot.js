@@ -118,7 +118,7 @@ bot.onText(/\/rank/, (msg) => {
       } else {
         let response = 'Top 10 de usuarios:\n';
         results.forEach((row, index) => {
-          response += `${index + 1}. @${row.username}: Puntos - ${row.total_points}\n`;
+          response += `${index + 1}. @${row.username} - ${row.total_points}\n`;
         });
         bot.sendMessage(chatId, response);
       }
