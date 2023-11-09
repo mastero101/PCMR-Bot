@@ -66,7 +66,16 @@ function handlePointsCommand(msg, pointsToAdd) {
   const repliedToUsername = msg.reply_to_message.from.username;
 
   // Verifica si el usuario tiene un nombre de usuario
-  const username = repliedToUsername || 'No_Username';
+  if (!repliedToUsername) {
+    bot.sendMessage(chatId, '¡No se pueden dar puntos si el usuario no tiene un nombre de usuario!');
+    return;
+  }
+
+  // Verifica si el usuario está intentando darse puntos a sí mismo
+  if (userId === repliedToUserId) {
+    bot.sendMessage(chatId, '¡No puedes darte puntos a ti mismo!');
+    return;
+  }
 
   // Verifica si el usuario ya existe en la base de datos
   const selectSql = 'SELECT * FROM ranking WHERE userId = ?';
@@ -78,13 +87,13 @@ function handlePointsCommand(msg, pointsToAdd) {
       if (selectResults.length === 0) {
         // Si el usuario no existe, inserta un nuevo registro
         const insertSql = 'INSERT INTO ranking (userId, username, points) VALUES (?, ?, ?)';
-        dbConnection.query(insertSql, [repliedToUserId, username, pointsToAdd], (insertErr) => {
+        dbConnection.query(insertSql, [repliedToUserId, repliedToUsername, pointsToAdd], (insertErr) => {
           if (insertErr) {
             console.error('Error al agregar puntos a la base de datos:', insertErr);
             bot.sendMessage(chatId, 'Ha ocurrido un error al agregar puntos.');
           } else {
-            console.log(`Se ha sumado ${pointsToAdd} punto a @${username}.`);
-            bot.sendMessage(chatId, `Se ha sumado ${pointsToAdd} punto a @${username}.`);
+            console.log(`Se ha sumado ${pointsToAdd} punto a @${repliedToUsername}.`);
+            bot.sendMessage(chatId, `Se ha sumado ${pointsToAdd} punto a @${repliedToUsername}.`);
           }
         });
       } else {
@@ -95,15 +104,14 @@ function handlePointsCommand(msg, pointsToAdd) {
             console.error('Error al actualizar puntos del usuario:', updateErr);
             bot.sendMessage(chatId, 'Ha ocurrido un error al actualizar puntos.');
           } else {
-            console.log(`Se ha sumado ${pointsToAdd} punto a @${username}.`);
-            bot.sendMessage(chatId, `Se ha sumado ${pointsToAdd} punto a @${username}.`);
+            console.log(`Se ha sumado ${pointsToAdd} punto a @${repliedToUsername}.`);
+            bot.sendMessage(chatId, `Se ha sumado ${pointsToAdd} punto a @${repliedToUsername}.`);
           }
         });
       }
     }
   });
 }
-
 
 // Define una función para el comando /rank
 bot.onText(/\/rank/, (msg) => {
