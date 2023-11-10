@@ -1,49 +1,38 @@
 const TelegramBot = require('node-telegram-bot-api');
 const mysql = require('mysql2');
 
-const token = '6779482679:AAHJwXiVpvz0fXCaf4LcwUKtx0p3GpZjVws';
+// Leer variables de entorno
+require('dotenv').config();
 
+const token = process.env.TELEGRAM_BOT_TOKEN ?? '';
 const bot = new TelegramBot(token, { polling: true });
-
-let dbConnection;
+let dbConnection = null;
 
 // Función para conectar a la base de datos
-function connectToDatabase(host) {
-  return mysql.createConnection({
+function connectToDatabase() {
+  const port = Number(process.env.DB_NAME);
+  const host = process.env.DB_HOST ?? 'localhost';
+
+  dbConnection = mysql.createConnection({
     host: host,
-    user: '',
-    password: '',
-    database: 'test',
-    port: 3306,
-    ssl: false
+    user: process.env.DB_USER ?? '',
+    password: process.env.DB_PASS ?? '',
+    database: process.env.DB_NAME ?? '',
+    port: Number.isNaN(port) ? 3306 : port,
+    ssl: (process.env.DB_HOST ?? '') === 'true'
   });
-}
-
-// Lista de hosts de base de datos
-const dbHosts = ['localhost', '20.172.167.237'];
-
-// Intenta la conexión a la base de datos
-function tryDatabaseConnection(hosts) {
-  const host = hosts.shift();
-
-  dbConnection = connectToDatabase(host);
 
   dbConnection.connect((err) => {
     if (err) {
       console.error(`Error al conectar a la base de datos con el host ${host}:`, err);
-
-      if (hosts.length > 0) {
-        tryDatabaseConnection(hosts);
-      } else {
-        console.error('Error al conectar a todos los hosts.');
-      }
     } else {
       console.log(`Conexión a la base de datos establecida con el host ${host}.`);
     }
   });
 }
 
-tryDatabaseConnection([...dbHosts]); // Inicia el intento de conexión con la lista de hosts
+// Inicia el intento de conexión a la base de datos
+connectToDatabase();
 
 // Define una función para el comando /addpoints y /lesspoints
 bot.onText(/\/add/, (msg) => {
@@ -65,16 +54,26 @@ function handlePointsCommand(msg, pointsToAdd) {
   // Obtiene el nombre de usuario del usuario al que se le responde
   const repliedToUsername = msg.reply_to_message.from.username;
 
-  // Verifica si el usuario tiene un nombre de usuario
-  if (!repliedToUsername) {
-    bot.sendMessage(chatId, '¡No se pueden dar puntos si el usuario no tiene un nombre de usuario!');
-    return;
-  }
+  // Nombre del usuario
+  const repliedToUserFullName = `${msg.reply_to_message.from.first_name ?? ''} ${msg.reply_to_message.from.last_name ?? ''}`.trim();
+
+  // Enlace al usuario
+  const repliedToUserMention = repliedToUsername ? `@${repliedToUsername}` : `<a href="tg://user?id=${repliedToUserId}">${repliedToUserFullName}</a>`;
 
   // Verifica si el usuario está intentando darse puntos a sí mismo
   if (userId === repliedToUserId) {
     bot.sendMessage(chatId, '¡No puedes darte puntos a ti mismo!');
     return;
+  }
+
+  // Opciones adicionales a sendMessage()
+  // https://core.telegram.org/bots/api#sendmessage
+  const extraOpts = {};
+
+  // Se generó el enlace (repliedToUserMention) con HTML
+  // https://core.telegram.org/bots/api#html-style
+  if (!repliedToUsername) {
+    extraOpts.parse_mode = 'HTML';
   }
 
   // Verifica si el usuario ya existe en la base de datos
@@ -86,26 +85,36 @@ function handlePointsCommand(msg, pointsToAdd) {
     } else {
       if (selectResults.length === 0) {
         // Si el usuario no existe, inserta un nuevo registro
-        const insertSql = 'INSERT INTO ranking (userId, username, points) VALUES (?, ?, ?)';
-        dbConnection.query(insertSql, [repliedToUserId, repliedToUsername, pointsToAdd], (insertErr) => {
+        const insertSql = 'INSERT INTO ranking (userId, username, fullname, points) VALUES (?, ?, ?)';
+        dbConnection.query(insertSql, [repliedToUserId, repliedToUsername, repliedToUserFullName, pointsToAdd], (insertErr) => {
           if (insertErr) {
             console.error('Error al agregar puntos a la base de datos:', insertErr);
             bot.sendMessage(chatId, 'Ha ocurrido un error al agregar puntos.');
           } else {
-            console.log(`Se ha sumado ${pointsToAdd} punto a @${repliedToUsername}.`);
-            bot.sendMessage(chatId, `Se ha sumado ${pointsToAdd} punto a @${repliedToUsername}.`);
+            if (repliedToUsername) {
+              console.log(`Se ha sumado ${pointsToAdd} punto a @${repliedToUsername}.`);
+            } else {
+              console.log(`Se ha sumado ${pointsToAdd} punto a [${repliedToUserId}]${repliedToUserFullName}.`);
+            }
+
+            bot.sendMessage(chatId, `Se ha sumado ${pointsToAdd} punto a ${repliedToUserMention}.`, extraOpts);
           }
         });
       } else {
-        // Si el usuario ya existe, actualiza sus puntos
-        const updateSql = 'UPDATE ranking SET points = points + ? WHERE userId = ?';
-        dbConnection.query(updateSql, [pointsToAdd, repliedToUserId], (updateErr) => {
+        // Si el usuario ya existe, actualiza sus puntos y nombre (evita que no coincida si lo cambia)
+        const updateSql = 'UPDATE ranking SET points = points + ?, fullname = ? WHERE userId = ?';
+        dbConnection.query(updateSql, [pointsToAdd, repliedToUserFullName, repliedToUserId], (updateErr) => {
           if (updateErr) {
             console.error('Error al actualizar puntos del usuario:', updateErr);
             bot.sendMessage(chatId, 'Ha ocurrido un error al actualizar puntos.');
           } else {
-            console.log(`Se ha sumado ${pointsToAdd} punto a @${repliedToUsername}.`);
-            bot.sendMessage(chatId, `Se ha sumado ${pointsToAdd} punto a @${repliedToUsername}.`);
+            if (repliedToUsername) {
+              console.log(`Se ha sumado ${pointsToAdd} punto a @${repliedToUsername}.`);
+            } else {
+              console.log(`Se ha sumado ${pointsToAdd} punto a [${repliedToUserId}]${repliedToUserFullName}.`);
+            }
+
+            bot.sendMessage(chatId, `Se ha sumado ${pointsToAdd} punto a ${repliedToUserMention}.`, extraOpts);
           }
         });
       }
@@ -116,9 +125,13 @@ function handlePointsCommand(msg, pointsToAdd) {
 // Define una función para el comando /rank
 bot.onText(/\/rank/, (msg) => {
     const chatId = msg.chat.id;
+
+    // Opciones adicionales a sendMessage()
+    // https://core.telegram.org/bots/api#sendmessage
+    const extraOpts = {};
   
     // Realiza una consulta SQL para obtener el ranking de usuarios
-    const sql = 'SELECT username, SUM(points) AS total_points FROM ranking GROUP BY userId ORDER BY total_points DESC LIMIT 10';
+    const sql = 'SELECT userId, username, fullname, SUM(points) AS total_points FROM ranking GROUP BY userId ORDER BY total_points DESC LIMIT 10';
     dbConnection.query(sql, (err, results) => {
       if (err) {
         console.error('Error al obtener el ranking de la base de datos:', err);
@@ -126,9 +139,20 @@ bot.onText(/\/rank/, (msg) => {
       } else {
         let response = 'Top 10 de usuarios:\n';
         results.forEach((row, index) => {
-          response += `${index + 1}. @${row.username} - ${row.total_points}\n`;
+          const userId = row.userId;
+          const username = row.username ?? '';
+          const fullname = row.fullname;
+          const usermention = username?.length > 0 ? `@${username}` : `<a href="tg://user?id=${userId}">${fullname}</a>`;
+
+          // Se generó el enlace (usermention) con HTML
+          // https://core.telegram.org/bots/api#html-style
+          if (username?.length < 1) {
+            extraOpts.parse_mode = 'HTML';
+          }
+
+          response += `${index + 1}. ${usermention} - ${row.total_points}\n`;
         });
-        bot.sendMessage(chatId, response);
+        bot.sendMessage(chatId, response, extraOpts);
       }
     });
   });
