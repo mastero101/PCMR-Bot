@@ -101,6 +101,9 @@ function handlePointsCommand(msg, pointsToAdd) {
             }
 
             bot.sendMessage(chatId, `Se ha sumado ${pointsToAdd} punto a ${repliedToUserMention}.`, extraOpts);
+
+            // Actualiza la caché de Redis después de agregar puntos
+            updateRedisCache(extraOpts);
           }
         });
       } else {
@@ -118,9 +121,42 @@ function handlePointsCommand(msg, pointsToAdd) {
             }
 
             bot.sendMessage(chatId, `Se ha sumado ${pointsToAdd} punto a ${repliedToUserMention}.`, extraOpts);
+
+            // Actualiza la caché de Redis después de agregar puntos
+            updateRedisCache(extraOpts);
           }
         });
       }
+    }
+  });
+}
+
+// Función para actualizar la caché de Redis
+function updateRedisCache(extraOpts) {
+  // Realiza una consulta SQL para obtener el ranking de usuarios
+  const sql = 'SELECT userId, username, fullname, SUM(points) AS total_points FROM ranking GROUP BY userId ORDER BY total_points DESC LIMIT 10';
+  dbConnection.query(sql, (err, results) => {
+    if (err) {
+      console.error('Error al obtener el ranking de la base de datos:', err);
+    } else {
+      let response = 'Top 10 de usuarios:\n';
+      results.forEach((row, index) => {
+        const userId = row.userId;
+        const username = row.username ?? '';
+        const fullname = row.fullname;
+        const usermention = username?.length > 0 ? `@${username}` : `<a href="tg://user?id=${userId}">${fullname}</a>`;
+
+        // Se generó el enlace (usermention) con HTML
+        // https://core.telegram.org/bots/api#html-style
+        if (username?.length < 1) {
+          extraOpts.parse_mode = 'HTML';
+        }
+
+        response += `${index + 1}. ${usermention} - ${row.total_points}\n`;
+      });
+
+      // Almacena el ranking en la caché de Redis por 5 minutos
+      redis.set('rank', response, 'EX', 300);
     }
   });
 }
