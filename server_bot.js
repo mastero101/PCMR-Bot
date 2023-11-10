@@ -85,7 +85,7 @@ function handlePointsCommand(msg, pointsToAdd) {
     } else {
       if (selectResults.length === 0) {
         // Si el usuario no existe, inserta un nuevo registro
-        const insertSql = 'INSERT INTO ranking (userId, username, fullname, points) VALUES (?, ?, ?)';
+        const insertSql = 'INSERT INTO ranking (userId, username, fullname, points) VALUES (?, ?, ?, ?)';
         dbConnection.query(insertSql, [repliedToUserId, repliedToUsername, repliedToUserFullName, pointsToAdd], (insertErr) => {
           if (insertErr) {
             console.error('Error al agregar puntos a la base de datos:', insertErr);
