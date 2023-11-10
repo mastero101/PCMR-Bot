@@ -63,9 +63,9 @@ function handlePointsCommand(msg, pointsToAdd) {
   // Enlace al usuario
   const repliedToUserMention = repliedToUsername ? `@${repliedToUsername}` : `<a href="tg://user?id=${repliedToUserId}">${repliedToUserFullName}</a>`;
 
-  // Verifica si el usuario está intentando darse puntos a sí mismo
-  if (userId === repliedToUserId) {
-    bot.sendMessage(chatId, '¡No puedes darte puntos a ti mismo!');
+  // Verifica si el usuario está intentando darse puntos a sí mismo o al bot
+  if (userId === repliedToUserId || repliedToUsername === 'ranking_pcmr_bot') {
+    bot.sendMessage(chatId, '¡No puedes darte puntos a ti mismo o al bot!');
     return;
   }
 
