@@ -8,3 +8,6 @@ npm-debug.log
 # Dependiendo de tu entorno, también puedes querer ignorar estos archivos:
 # yarn.lock (si usas Yarn)
 # pnpm-lock.yaml (si usas PNPM)
+
+**/.env
+!.env.example
