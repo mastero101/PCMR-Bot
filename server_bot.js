@@ -1,5 +1,6 @@
 const TelegramBot = require('node-telegram-bot-api');
 const mysql = require('mysql2');
+const Redis = require('ioredis');
 
 // Leer variables de entorno
 require('dotenv').config();
@@ -7,6 +8,8 @@ require('dotenv').config();
 const token = process.env.TELEGRAM_BOT_TOKEN ?? '';
 const bot = new TelegramBot(token, { polling: true });
 let dbConnection = null;
+
+const redis = new Redis();
 
 // Función para conectar a la base de datos
 function connectToDatabase() {
@@ -123,13 +126,19 @@ function handlePointsCommand(msg, pointsToAdd) {
 }
 
 // Define una función para el comando /rank
-bot.onText(/\/rank/, (msg) => {
-    const chatId = msg.chat.id;
+bot.onText(/\/rank/, async (msg) => {
+  const chatId = msg.chat.id;
 
-    // Opciones adicionales a sendMessage()
-    // https://core.telegram.org/bots/api#sendmessage
-    const extraOpts = {};
-  
+  // Opciones adicionales a sendMessage()
+  // https://core.telegram.org/bots/api#sendmessage
+  const extraOpts = { parse_mode: 'HTML' };
+
+  // Intenta obtener el ranking desde la caché de Redis
+  const cachedRanking = await redis.get('rank');
+  if (cachedRanking) {
+    console.log('Obteniendo ranking desde la caché de Redis.');
+    bot.sendMessage(chatId, cachedRanking, extraOpts);
+  } else {
     // Realiza una consulta SQL para obtener el ranking de usuarios
     const sql = 'SELECT userId, username, fullname, SUM(points) AS total_points FROM ranking GROUP BY userId ORDER BY total_points DESC LIMIT 10';
     dbConnection.query(sql, (err, results) => {
@@ -152,10 +161,15 @@ bot.onText(/\/rank/, (msg) => {
 
           response += `${index + 1}. ${usermention} - ${row.total_points}\n`;
         });
+
+        // Almacena el ranking en la caché de Redis por 5 minutos
+        redis.set('rank', response, 'EX', 300);
+
         bot.sendMessage(chatId, response, extraOpts);
       }
     });
-  });
+  }
+});
 
 // Inicia el bot
 bot.on('polling_error', (error) => {
@@ -165,6 +179,7 @@ bot.on('polling_error', (error) => {
 // Cierra la conexión a la base de datos al detener el bot
 process.on('exit', () => {
   dbConnection.end();
+  redis.quit();
   console.log('Conexión a la base de datos cerrada.');
 });
 
