@@ -11,8 +11,8 @@ let dbConnection;
 function connectToDatabase(host) {
   return mysql.createConnection({
     host: host,
-    user: 'mastero',
-    password: 'alejandrof15',
+    user: '',
+    password: '',
     database: 'test',
     port: 3306,
     ssl: false
