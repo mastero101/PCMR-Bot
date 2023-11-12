@@ -1,6 +1,8 @@
 const TelegramBot = require('node-telegram-bot-api');
 const mysql = require('mysql2');
 const Redis = require('ioredis');
+const fs = require('fs');
+const path = require('path');
 
 // Leer variables de entorno
 require('dotenv').config();
@@ -28,6 +30,8 @@ function connectToDatabase() {
   dbConnection.connect((err) => {
     if (err) {
       console.error(`Error al conectar a la base de datos con el host ${host}:`, err);
+      const logMessage = (`Error al conectar a la base de datos con el host ${host}:`, err);
+      writeLogToFile(logMessage);
     } else {
       console.log(`Conexión a la base de datos establecida con el host ${host}.`);
     }
@@ -85,6 +89,8 @@ function handlePointsCommand(msg, pointsToAdd) {
     if (selectErr) {
       console.error('Error al consultar la base de datos:', selectErr);
       bot.sendMessage(chatId, 'Ha ocurrido un error al verificar el usuario.');
+      const logMessage1 = ('Error al consultar la base de datos:', selectErr)
+      writeLogToFile(logMessage1);
     } else {
       if (selectResults.length === 0) {
         // Si el usuario no existe, inserta un nuevo registro
@@ -92,6 +98,8 @@ function handlePointsCommand(msg, pointsToAdd) {
         dbConnection.query(insertSql, [repliedToUserId, repliedToUsername, repliedToUserFullName, pointsToAdd], (insertErr) => {
           if (insertErr) {
             console.error('Error al agregar puntos a la base de datos:', insertErr);
+            const logMessage2 = ('Error al agregar puntos a la base de datos:', insertErr)
+            writeLogToFile(logMessage2);
             bot.sendMessage(chatId, 'Ha ocurrido un error al agregar puntos.');
           } else {
             if (repliedToUsername) {
@@ -113,6 +121,8 @@ function handlePointsCommand(msg, pointsToAdd) {
           if (updateErr) {
             console.error('Error al actualizar puntos del usuario:', updateErr);
             bot.sendMessage(chatId, 'Ha ocurrido un error al actualizar puntos.');
+            const logMessage3 = ('Error al actualizar puntos del usuario:', updateErr)
+            writeLogToFile(logMessage3);
           } else {
             if (repliedToUsername) {
               console.log(`Se ha sumado ${pointsToAdd} punto a @${repliedToUsername}.`);
@@ -138,6 +148,8 @@ function updateRedisCache(extraOpts) {
   dbConnection.query(sql, (err, results) => {
     if (err) {
       console.error('Error al obtener el ranking de la base de datos:', err);
+      const logMessage4 = ('Error al obtener el ranking de la base de datos:', err)
+      writeLogToFile(logMessage4);
     } else {
       let response = 'Top 10 de usuarios:\n';
       results.forEach((row, index) => {
@@ -181,6 +193,8 @@ bot.onText(/\/rank/, async (msg) => {
       if (err) {
         console.error('Error al obtener el ranking de la base de datos:', err);
         bot.sendMessage(chatId, 'Ha ocurrido un error al obtener el ranking.');
+        const logMessage5 = ('Error al obtener el ranking de la base de datos:', err)
+        writeLogToFile(logMessage5);
       } else {
         let response = 'Top 10 de usuarios:\n';
         results.forEach((row, index) => {
@@ -206,6 +220,17 @@ bot.onText(/\/rank/, async (msg) => {
     });
   }
 });
+
+// Función para escribir en el archivo de registro
+function writeLogToFile(message) {
+  const logFilePath = path.join(__dirname, 'logs.txt');
+
+  // Formatea el mensaje con la fecha y hora actual
+  const formattedMessage = `[${new Date().toLocaleString()}] ${message}\n`;
+
+  // Escribe en el archivo
+  fs.appendFileSync(logFilePath, formattedMessage);
+}
 
 // Inicia el bot
 bot.on('polling_error', (error) => {

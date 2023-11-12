@@ -1,6 +1,7 @@
 # Ignora la carpeta node_modules
 node_modules/
 respaldo7z/
+logs.txt
 
 # Archivos generados por npm
 package-lock.json
