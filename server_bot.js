@@ -239,7 +239,9 @@ bot.on('polling_error', (error) => {
 
 // Cierra la conexión a la base de datos al detener el bot
 process.on('exit', () => {
-  dbConnection.end();
+  if (dbConnection.state !== 'disconnected') {
+    dbConnection.end();
+  }
   redis.quit();
   console.log('Conexión a la base de datos cerrada.');
 });
