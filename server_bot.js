@@ -3,14 +3,15 @@ const mysql = require('mysql2');
 const Redis = require('ioredis');
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
 
 // Leer variables de entorno
 require('dotenv').config();
 
 const token = process.env.TELEGRAM_BOT_TOKEN ?? '';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const bot = new TelegramBot(token, { polling: true });
 let dbConnection = null;
-
 const redis = new Redis();
 
 // Función para conectar a la base de datos
@@ -220,6 +221,51 @@ bot.onText(/\/rank/, async (msg) => {
     });
   }
 });
+
+// Define una función para el comando /chatgpt
+bot.onText(/\/gpt/, (msg) => {
+  const chatId = msg.chat.id;
+
+  // Obtén el texto del mensaje del usuario
+  const userMessage = msg.text.replace(/\/gpt/, '').trim();
+
+  // Verifica si el mensaje no está vacío
+  if (!userMessage) {
+    bot.sendMessage(chatId, 'Por favor, proporciona un mensaje para obtener una respuesta de ChatGPT.');
+    return;
+  }
+
+  // Envía el mensaje del usuario a OpenAI para obtener una respuesta
+  sendToOpenAI(userMessage)
+    .then((aiResponse) => {
+      // Envía la respuesta de ChatGPT al chat de Telegram
+      bot.sendMessage(chatId, `AI: ${aiResponse}`);
+    })
+    .catch((error) => {
+      console.error('Error al obtener respuesta de ChatGPT:', error);
+      bot.sendMessage(chatId, 'Ha ocurrido un error al obtener respuesta de ChatGPT.');
+    });
+});
+
+// Función para enviar mensajes a OpenAI y obtener una respuesta
+async function sendToOpenAI(userMessage) {
+  try {
+    const openAiResponse = await axios.post('https://api.openai.com/v1/chat/completions', {
+      messages: [{ role: 'user', content: userMessage }],
+      model: 'gpt-3.5-turbo',
+      max_tokens: 300,
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+      },
+    });
+
+    return openAiResponse.data.choices[0].message.content;
+  } catch (error) {
+    throw error;
+  }
+}
 
 // Función para escribir en el archivo de registro
 function writeLogToFile(message) {

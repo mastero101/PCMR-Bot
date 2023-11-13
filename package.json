@@ -9,6 +9,7 @@
   "author": "Mastero",
   "license": "ISC",
   "dependencies": {
+    "axios": "^1.6.1",
     "dotenv": "^16.3.1",
     "ioredis": "^5.3.2",
     "mysql2": "^3.6.3",
