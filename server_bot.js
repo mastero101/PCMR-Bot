@@ -239,11 +239,31 @@ bot.onText(/\/gpt/, (msg) => {
   sendToOpenAI(userMessage)
     .then((aiResponse) => {
       // Envía la respuesta de ChatGPT al chat de Telegram
-      bot.sendMessage(chatId, `AI: ${aiResponse}`);
+      bot.sendMessage(chatId, `GPT: ${aiResponse}`);
     })
     .catch((error) => {
       console.error('Error al obtener respuesta de ChatGPT:', error);
       bot.sendMessage(chatId, 'Ha ocurrido un error al obtener respuesta de ChatGPT.');
+    });
+});
+
+bot.onText(/\/dalle/, (msg) => {
+  const chatId = msg.chat.id;
+  const userPrompt = msg.text.replace(/\/dalle/, '').trim();
+
+  if (!userPrompt) {
+    bot.sendMessage(chatId, 'Por favor, proporciona un prompt para generar una imagen con DALL-E.');
+    return;
+  }
+
+  generateImageWithDALL_E(userPrompt)
+    .then((imageURL) => {
+      // Envía la URL de la imagen generada al chat de Telegram
+      bot.sendMessage(chatId, `Aquí está tu imagen generada:\n${imageURL}`);
+    })
+    .catch((error) => {
+      console.error('Error al generar la imagen con DALL-E:', error);
+      bot.sendMessage(chatId, 'Ha ocurrido un error al generar la imagen con DALL-E.');
     });
 });
 
@@ -266,6 +286,36 @@ async function sendToOpenAI(userMessage) {
     throw error;
   }
 }
+
+// Función para enviar prompt a OpenAI-DALL-E y obtener una imagen
+async function generateImageWithDALL_E(prompt) {
+  try {
+    const response = await axios.post(
+      'https://api.openai.com/v1/images/generations',
+      {
+        prompt: prompt,
+        model: 'dall-e-3',
+        size: "1024x1024",
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENAI_API_KEY}`, // Reemplaza con tu clave de API para DALL-E
+        },
+      }
+    );
+
+    // Extrae la URL de la imagen generada del campo 'data'
+    const imageURL = response.data.data[0].url;
+
+    // Retorna la URL de la imagen generada
+    return imageURL;
+  } catch (error) {
+    throw error;
+  }
+}
+
+
 
 // Función para escribir en el archivo de registro
 function writeLogToFile(message) {
