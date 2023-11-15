@@ -267,6 +267,37 @@ bot.onText(/\/dalle/, (msg) => {
     });
 });
 
+// Función para manejar el comando /ec (exchange)
+bot.onText(/\/ec/, (msg) => {
+  const chatId = msg.chat.id;
+  const userMessage = msg.text.replace(/\/ec/, '').trim();
+
+  // Verifica si se proporcionó un mensaje
+  if (!userMessage) {
+    bot.sendMessage(chatId, 'El comando debe tener este formato\n/ec 1 usd mxn');
+    return;
+  }
+
+  // Extrae las monedas y la cantidad del mensaje
+  const [amount, fromCurrency, toCurrency] = userMessage.split(' ');
+
+  // Verifica si se proporcionaron las tres partes necesarias
+  if (!amount || !fromCurrency || !toCurrency) {
+    bot.sendMessage(chatId, 'El comando debe tener este formato\n/ec 1 usd mxn');
+    return;
+  }
+
+  // Realiza la conversión utilizando ExchangeRate-API
+  convertCurrency(amount, fromCurrency, toCurrency)
+    .then((result) => {
+      bot.sendMessage(chatId, `${amount} ${fromCurrency} Valen: ${result} ${toCurrency}`);
+    })
+    .catch((error) => {
+      console.error('Error al realizar la conversión de divisas:', error);
+      bot.sendMessage(chatId, 'Ha ocurrido un error al realizar la conversión de divisas.');
+    });
+});
+
 // Función para enviar mensajes a OpenAI y obtener una respuesta
 async function sendToOpenAI(userMessage) {
   try {
@@ -315,7 +346,15 @@ async function generateImageWithDALL_E(prompt) {
   }
 }
 
-
+// Función para realizar la conversión de divisas
+async function convertCurrency(amount, fromCurrency, toCurrency) {
+  try {
+    const response = await axios.get(`https://v6.exchangerate-api.com/v6/dc53d5e849ebd478c7b979aa/pair/${fromCurrency}/${toCurrency}/${amount}`);
+    return response.data.conversion_result;
+  } catch (error) {
+    throw error;
+  }
+}
 
 // Función para escribir en el archivo de registro
 function writeLogToFile(message) {
