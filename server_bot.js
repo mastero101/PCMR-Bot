@@ -272,31 +272,44 @@ bot.onText(/\/ec/, (msg) => {
   const chatId = msg.chat.id;
   const userMessage = msg.text.replace(/\/ec/, '').trim();
 
-  // Verifica si se proporcionó un mensaje
-  if (!userMessage) {
-    bot.sendMessage(chatId, 'El comando debe tener este formato\n/ec 1 usd mxn');
+  // Expresión regular para validar el formato del comando
+  const formatRegex = /^(\d{1,}(,\d{3})*(\.\d+)?)\s+([a-zA-Z]{3})\s+([a-zA-Z]{3})$/;
+
+  // Verifica si el mensaje cumple con el formato esperado
+  const match = userMessage.match(formatRegex);
+  if (!match) {
+    bot.sendMessage(chatId, 'El comando debe tener este formato\n/ec 1,000,000 usd mxn\n/ec 1000000 usd mxn');
     return;
   }
 
-  // Extrae las monedas y la cantidad del mensaje
-  const [amount, fromCurrency, toCurrency] = userMessage.split(' ');
+  // Extrae las partes del mensaje
+  const amount = match[1].replace(/,/g, '');
+  const fromCurrency = match[4].toUpperCase();
+  const toCurrency = match[5].toUpperCase();
 
-  // Verifica si se proporcionaron las tres partes necesarias
+  // Verifica si los valores esperados están presentes
   if (!amount || !fromCurrency || !toCurrency) {
-    bot.sendMessage(chatId, 'El comando debe tener este formato\n/ec 1 usd mxn');
+    bot.sendMessage(chatId, 'El comando debe tener este formato\n/ec 1,000,000 usd mxn\n/ec 1000000 usd mxn');
     return;
   }
 
   // Realiza la conversión utilizando ExchangeRate-API
   convertCurrency(amount, fromCurrency, toCurrency)
     .then((result) => {
-      bot.sendMessage(chatId, `${amount} ${fromCurrency} Valen: ${result} ${toCurrency}`);
+      // Formatea la cantidad con separador de miles y millones
+      const formattedAmount = parseFloat(amount).toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+      // Formatea el resultado con separador de miles y millones
+      const formattedResult = parseFloat(result).toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+      bot.sendMessage(chatId, `${formattedAmount} ${fromCurrency} Valen: ${formattedResult} ${toCurrency}`);
     })
     .catch((error) => {
       console.error('Error al realizar la conversión de divisas:', error);
       bot.sendMessage(chatId, 'Ha ocurrido un error al realizar la conversión de divisas.');
     });
 });
+
 
 // Función para enviar mensajes a OpenAI y obtener una respuesta
 async function sendToOpenAI(userMessage) {
