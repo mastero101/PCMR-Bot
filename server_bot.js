@@ -42,31 +42,19 @@ function connectToDatabase() {
 // Inicia el intento de conexión a la base de datos
 connectToDatabase();
 
-bot.onText(/([+-])/, (msg, match) => {
-  const chatId = msg.chat.id;
-  const userId = msg.from.id;
-  const operation = match[1];
+// Define una función para el comando /addpoints y /lesspoints
+bot.onText(/\/add/, (msg) => {
+  handlePointsCommand(msg, 1);
+});
 
-  // Obtiene el ID del usuario al que se le responde
-  const repliedToUserId = msg.reply_to_message.from.id;
-
-  // Verifica si el usuario está intentando darse puntos a sí mismo o al bot
-  if (userId === repliedToUserId || msg.reply_to_message.from.username === 'ranking_pcmr_bot') {
-    bot.sendMessage(chatId, '¡No puedes darte puntos a ti mismo o al bot!');
-    return;
-  }
-
-  // Determina la cantidad de puntos a agregar o restar
-  const pointsToAdd = operation === '+' ? 1 : -1;
-
-  // Llama a la función para manejar los puntos
-  handlePointsCommand(msg, pointsToAdd, match);
+bot.onText(/\/less/, (msg) => {
+  handlePointsCommand(msg, -1);
 });
 
 // Función para manejar los comandos de puntos
 function handlePointsCommand(msg, pointsToAdd) {
-  userId = msg.from.id; // Almacena el ID del usuario globalmente
   const chatId = msg.chat.id;
+  const userId = msg.from.id;
 
   // Obtiene el ID del usuario al que se le responde
   const repliedToUserId = msg.reply_to_message.from.id;
