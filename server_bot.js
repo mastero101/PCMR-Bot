@@ -4,6 +4,7 @@ const Redis = require('ioredis');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
+const FormData = require('form-data');
 
 // Leer variables de entorno
 require('dotenv').config();
@@ -267,6 +268,27 @@ bot.onText(/\/dalle/, (msg) => {
     });
 });
 
+// Evento para manejar mensajes de voz
+bot.on('voice', async (msg) => {
+  const chatId = msg.chat.id;
+
+  try {
+    // Transcribe el audio utilizando la función que creamos
+    const transcription = await transcribeAudio(msg.voice.file_id);
+    // Envía la transcripción al chat de Telegram
+    bot.sendMessage(chatId, `Transcripción: ${transcription}`);
+
+    userMessage = transcription
+    // Envía la transcripción como userMessage a ChatGPT 3.5Turbo
+    const chatGPTResponse = await sendToOpenAI(userMessage);
+    // Envía la transcripción al chat de Telegram
+    bot.sendMessage(chatId, `GPT: ${chatGPTResponse}`);
+  } catch (error) {
+    console.error('Error al obtener la transcripción:', error);
+    bot.sendMessage(chatId, 'Ha ocurrido un error al obtener la transcripción.');
+  }
+});
+
 // Función para manejar el comando /ec (exchange)
 bot.onText(/\/ec/, (msg) => {
   const chatId = msg.chat.id;
@@ -355,6 +377,42 @@ async function generateImageWithDALL_E(prompt) {
     // Retorna la URL de la imagen generada
     return imageURL;
   } catch (error) {
+    throw error;
+  }
+}
+
+// Función para enviar un archivo de audio a OpenAI Whisper y obtener la transcripción
+async function transcribeAudio(fileId) {
+  const voiceFile = await bot.getFile(fileId);
+  const voiceUrl = `https://api.telegram.org/file/bot${token}/${voiceFile.file_path}`;
+
+  const response = await axios.get(voiceUrl, { responseType: 'arraybuffer' });
+  const audioBuffer = Buffer.from(response.data);
+
+  try {
+    const form = new FormData();
+    form.append('file', audioBuffer, { filename: 'audio.ogg' }); // Ajusta el nombre del archivo según sea necesario
+    form.append('model', 'whisper-1');
+    form.append('language', 'es'); // Ajusta el idioma según sea necesario
+
+    const openaiResponse = await axios.post('https://api.openai.com/v1/audio/transcriptions', form, {
+      headers: {
+        'Content-Type': `multipart/form-data; boundary=${form._boundary}`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+      },
+    });
+
+    console.log('Respuesta de OpenAI:', openaiResponse.data);
+
+    if (openaiResponse.data && openaiResponse.data.text) {
+      return openaiResponse.data.text;
+    } else {
+      console.error('La respuesta de OpenAI no tiene la estructura esperada:', openaiResponse.data);
+      throw new Error('Error al obtener la transcripción: Respuesta inesperada de OpenAI');
+    }
+    
+  } catch (error) {
+    console.error('Error al procesar la respuesta de OpenAI:', error.message);
     throw error;
   }
 }
