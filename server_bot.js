@@ -332,6 +332,46 @@ bot.onText(/\/ec/, (msg) => {
     });
 });
 
+bot.onText(/\/cloud/, (msg) => {
+  const chatId = msg.chat.id;
+  const userPrompt = msg.text.replace(/\/cloud/, '').trim();
+
+  if (!userPrompt) {
+    bot.sendMessage(chatId, 'Por favor, proporciona un prompt para generar una imagen.');
+    return;
+  }
+
+  sendPromptToWorker(userPrompt)
+    .then((imageURL) => {
+      // Envía la URL de la imagen generada al chat de Telegram
+      bot.sendMessage(chatId, `Aquí está tu imagen generada:\n${imageURL}`);
+    })
+    .catch((error) => {
+      console.error('Error al generar la imagen:', error);
+      bot.sendMessage(chatId, 'Ha ocurrido un error al generar la imagen.');
+    });
+});
+
+// Función para enviar el prompt a Cloudflare Workers y obtener una imagen
+async function sendPromptToWorker(prompt) {
+  try {
+    const response = await axios.post(
+      'https://stable-difussion-xl.castro-alejandro17.workers.dev/',
+      { prompt },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    // Retorna la URL de la imagen generada
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+}
+
 
 // Función para enviar mensajes a OpenAI y obtener una respuesta
 async function sendToOpenAI(userMessage) {
@@ -442,6 +482,8 @@ function writeLogToFile(message) {
 bot.on('polling_error', (error) => {
   console.log(`Polling error: ${error}`);
 });
+
+
 
 // Cierra la conexión a la base de datos al detener el bot
 process.on('exit', () => {
