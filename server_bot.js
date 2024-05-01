@@ -343,8 +343,8 @@ bot.onText(/\/cloud/, (msg) => {
 
   sendPromptToWorker(userPrompt)
     .then((imageURL) => {
-      // Envía la URL de la imagen generada al chat de Telegram
-      bot.sendMessage(chatId, `Aquí está tu imagen generada:\n${imageURL}`);
+      // Envía la imagen generada al chat de Telegram
+      bot.sendPhoto(chatId, imageURL);
     })
     .catch((error) => {
       console.error('Error al generar la imagen:', error);
@@ -352,7 +352,6 @@ bot.onText(/\/cloud/, (msg) => {
     });
 });
 
-// Función para enviar el prompt a Cloudflare Workers y obtener una imagen
 async function sendPromptToWorker(prompt) {
   try {
     const response = await axios.post(
@@ -362,16 +361,25 @@ async function sendPromptToWorker(prompt) {
         headers: {
           'Content-Type': 'application/json',
         },
+        responseType: 'arraybuffer',
       }
     );
 
-    // Retorna la URL de la imagen generada
-    return response.data;
+    const imageData = Buffer.from(response.data, 'binary');
+    const directory = './images';
+    const imagePath = path.join(directory, 'image.png');
+
+    if (!fs.existsSync(directory)) {
+      fs.mkdirSync(directory);
+    }
+
+    fs.writeFileSync(imagePath, imageData);
+
+    return imagePath;
   } catch (error) {
     throw error;
   }
 }
-
 
 // Función para enviar mensajes a OpenAI y obtener una respuesta
 async function sendToOpenAI(userMessage) {
