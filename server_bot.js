@@ -386,7 +386,7 @@ async function sendToOpenAI(userMessage) {
   try {
     const openAiResponse = await axios.post('https://api.openai.com/v1/chat/completions', {
       messages: [{ role: 'user', content: userMessage }],
-      model: 'gpt-3.5-turbo',
+      model: 'gpt-4o-mini',
       max_tokens: 300,
     }, {
       headers: {
